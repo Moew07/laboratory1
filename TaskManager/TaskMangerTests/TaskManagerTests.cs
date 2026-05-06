@@ -89,7 +89,7 @@ namespace TaskManagerTests
             Assert.AreEqual(0, newManager.Tasks.Count);
         }
 
-        // Проверяет, что свойство Tasks имеет приватный сеттер
+        // Проверяет, что свойство Tasks имеет огранниченный доступ на запись
         [TestMethod]
         public void Tasks_CannotBeReassigned()
         {
@@ -98,7 +98,7 @@ namespace TaskManagerTests
             Assert.IsTrue(property.GetSetMethod(true).IsPrivate);
         }
 
-        // Проверяет, что после удаления задачи индексы сдвигаются корректно
+        // Проверяет, что после удаления задачи, индексы сдвигаются корректно
         [TestMethod]
         public void Remove_Middle_ShiftsIndices()
         {

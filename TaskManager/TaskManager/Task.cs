@@ -1,8 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace TaskManager
 {
@@ -10,11 +6,18 @@ namespace TaskManager
     {
         public string Description { get; set; }
         public bool IsCompleted { get; set; }
-        public Task(string description)
+        public string Category { get; set; }
+
+        public Task(string description, string category = "Без категории")
         {
             Description = description;
             IsCompleted = false;
+            Category = string.IsNullOrWhiteSpace(category) ? "Без категории" : category;
+        }
+
+        public override string ToString()
+        {
+            return $"[{Category}] {(IsCompleted ? "[X]" : "[ ]")} {Description}";
         }
     }
-
 }

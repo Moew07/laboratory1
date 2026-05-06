@@ -49,6 +49,7 @@
     <Reference Include="System.Core" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="CategoryTests.cs" />
     <Compile Include="TaskManagerTests.cs" />
     <Compile Include="TaskTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

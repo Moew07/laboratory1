@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Drawing;
 using System.Windows.Forms;
+using System.Linq;
 
 namespace TaskManager
 {
@@ -10,101 +11,112 @@ namespace TaskManager
         private ListBox tasksListBox;
         private TextBox descriptionTextBox;
         private TextBox indexTextBox;
-        private Button addTaskButton;
-        private Button removeTaskButton;
-        private Button toggleCompletionButton;
-        private Label descriptionLabel;
-        private Label indexLabel;
+        private ComboBox categoryComboBox;
+        private ComboBox filterComboBox;
+        private TextBox newCategoryTextBox;
+        private Button addTaskButton, removeTaskButton, toggleButton;
+        private Button addCategoryButton, removeCategoryButton;
+        private Button filterButton;
+        private Label descLabel, indexLabel, catLabel, filterLabel, newCatLabel;
+
+        private string currentFilter = "Все";
 
         public TaskManagerForm()
         {
-            this.Text = "Управление задачами";
-            this.Width = 400;
-            this.Height = 400; 
+            this.Text = "Управление задачами с категориями";
+            this.Width = 500;
+            this.Height = 550;
             this.StartPosition = FormStartPosition.CenterScreen;
 
-            // Label "Описание:"
-            descriptionLabel = new Label
-            {
-                Text = "Описание:",
-                Location = new Point(220, 10),
-                AutoSize = true
-            };
+            InitializeControls();
+            taskManager = new TaskManager();
+            PopulateCategories();
+            UpdateTasksList();
+        }
 
-            descriptionTextBox = new TextBox
-            {
-                Location = new Point(220, 30), 
-                Width = 150, 
-            };
+        private void InitializeControls()
+        {
+            //левая панель(список задач)
+            tasksListBox = new ListBox { Location = new Point(10, 10), Width = 220, Height = 300 };
+            tasksListBox.SelectedIndexChanged += TasksListBox_SelectedIndexChanged;
 
-            //  Label "Индекс:"
-            indexLabel = new Label
-            {
-                Text = "Индекс:",
-                Location = new Point(220, 58),
-                AutoSize = true
-            };
+            //правая панель(управление задачами)
+            descLabel = new Label { Text = "Описание:", Location = new Point(240, 10), AutoSize = true };
+            descriptionTextBox = new TextBox { Location = new Point(240, 30), Width = 230 };
 
-            //  Поле ввода индекса
-            indexTextBox = new TextBox
-            {
-                Location = new Point(220, 78),
-                Width = 50
-            };
+            catLabel = new Label { Text = "Категория:", Location = new Point(240, 58), AutoSize = true };
+            categoryComboBox = new ComboBox { Location = new Point(240, 78), Width = 230, DropDownStyle = ComboBoxStyle.DropDownList };
 
-            addTaskButton = new Button
-            {
-                Location = new Point(220, 105), 
-                Text = "Добавить",
-                Width = 70
-            };
+            indexLabel = new Label { Text = "Индекс:", Location = new Point(240, 106), AutoSize = true };
+            indexTextBox = new TextBox { Location = new Point(240, 126), Width = 50 };
+
+            addTaskButton = new Button { Text = "Добавить задачу", Location = new Point(240, 155), Width = 110 };
             addTaskButton.Click += AddTaskButton_Click;
 
-            removeTaskButton = new Button
-            {
-                Location = new Point(300, 105), 
-                Text = "Удалить",
-                Width = 70
-            };
+            removeTaskButton = new Button { Text = "Удалить", Location = new Point(360, 155), Width = 110 };
             removeTaskButton.Click += RemoveTaskButton_Click;
 
-            toggleCompletionButton = new Button
+            toggleButton = new Button { Text = "Отметить выполнение", Location = new Point(240, 185), Width = 230 };
+            toggleButton.Click += ToggleCompletionButton_Click;
+
+            //управление категориями
+            newCatLabel = new Label { Text = "Новая категория:", Location = new Point(240, 220), AutoSize = true };
+            newCategoryTextBox = new TextBox { Location = new Point(240, 240), Width = 150 };
+
+            addCategoryButton = new Button { Text = "Добавить", Location = new Point(240, 265), Width = 70 };
+            addCategoryButton.Click += AddCategoryButton_Click;
+
+            removeCategoryButton = new Button { Text = "Удалить", Location = new Point(320, 265), Width = 70 };
+            removeCategoryButton.Click += RemoveCategoryButton_Click;
+
+            // фильтрация
+            filterLabel = new Label { Text = "Фильтр:", Location = new Point(240, 300), AutoSize = true };
+            filterComboBox = new ComboBox { Location = new Point(240, 320), Width = 230, DropDownStyle = ComboBoxStyle.DropDownList };
+            filterComboBox.SelectedIndexChanged += FilterComboBox_SelectedIndexChanged;
+
+            //добавляем элементы на форму
+            this.Controls.AddRange(new Control[] {
+                tasksListBox, descLabel, descriptionTextBox, catLabel, categoryComboBox,
+                indexLabel, indexTextBox, addTaskButton, removeTaskButton, toggleButton,
+                newCatLabel, newCategoryTextBox, addCategoryButton, removeCategoryButton,
+                filterLabel, filterComboBox
+            });
+        }
+
+        private void PopulateCategories()
+        {
+            categoryComboBox.Items.Clear();
+            filterComboBox.Items.Clear();
+            filterComboBox.Items.Add("Все");
+
+            foreach (var cat in taskManager.GetCategories())
             {
-                Location = new Point(220, 135), 
-                Text = "Отметить",
-                Width = 150
-            };
-            toggleCompletionButton.Click += ToggleCompletionButton_Click;
+                categoryComboBox.Items.Add(cat);
+                filterComboBox.Items.Add(cat);
+            }
 
-            tasksListBox = new ListBox
-            {
-                Location = new Point(10, 10),
-                Width = 200,
-                Height = 200 
-            };
-
-
-            this.Controls.Add(tasksListBox);
-            this.Controls.Add(descriptionLabel);
-            this.Controls.Add(descriptionTextBox);
-            this.Controls.Add(indexLabel);
-            this.Controls.Add(indexTextBox);
-            this.Controls.Add(addTaskButton);
-            this.Controls.Add(removeTaskButton);
-            this.Controls.Add(toggleCompletionButton);
-
-            taskManager = new TaskManager();
-            UpdateTasksList();
+            categoryComboBox.SelectedIndex = 0;
+            filterComboBox.SelectedIndex = 0;
         }
 
         private void UpdateTasksList()
         {
             tasksListBox.Items.Clear();
-            for (int i = 0; i < taskManager.Tasks.Count; i++)
+            var tasks = taskManager.GetTasksByCategory(currentFilter);
+            for (int i = 0; i < tasks.Count; i++)
             {
-                var task = taskManager.Tasks[i];
-                string status = task.IsCompleted ? "[X]" : "[ ]";
-                tasksListBox.Items.Add($"{i}. {status} {task.Description}");
+                tasksListBox.Items.Add($"{i}. {tasks[i]}");
+            }
+        }
+
+        private void TasksListBox_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (tasksListBox.SelectedIndex >= 0)
+            {
+                var tasks = taskManager.GetTasksByCategory(currentFilter);
+                var task = tasks[tasksListBox.SelectedIndex];
+                descriptionTextBox.Text = task.Description;
+                categoryComboBox.SelectedItem = task.Category;
             }
         }
 
@@ -112,8 +124,10 @@ namespace TaskManager
         {
             try
             {
-                taskManager.AddTask(descriptionTextBox.Text);
+                string cat = categoryComboBox.SelectedItem?.ToString() ?? "Без категории";
+                taskManager.AddTask(descriptionTextBox.Text, cat);
                 descriptionTextBox.Clear();
+                PopulateCategories();
                 UpdateTasksList();
             }
             catch (Exception ex)
@@ -124,41 +138,23 @@ namespace TaskManager
 
         private void RemoveTaskButton_Click(object sender, EventArgs e)
         {
-            int index = -1;
-
-        
-            if (!string.IsNullOrWhiteSpace(indexTextBox.Text))
+            if (tasksListBox.SelectedIndex == -1)
             {
-                if (!int.TryParse(indexTextBox.Text, out index))
-                {
-                    MessageBox.Show("Введите корректный числовой индекс!", "Ошибка",
-                        MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    return;
-                }
-            }
-       
-            else if (tasksListBox.SelectedIndex != -1)
-            {
-                index = tasksListBox.SelectedIndex;
-            }
-          
-            else
-            {
-                MessageBox.Show("Введите индекс задачи или выберите задачу в списке для удаления!", "Ошибка",
-                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show("Выберите задачу для удаления!", "Внимание",
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
-
             try
             {
-                taskManager.RemoveTask(index);
-                indexTextBox.Clear();
+                var tasks = taskManager.GetTasksByCategory(currentFilter);
+                var realIndex = taskManager.Tasks.IndexOf(tasks[tasksListBox.SelectedIndex]);
+                taskManager.RemoveTask(realIndex);
+                PopulateCategories();
                 UpdateTasksList();
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message, "Ошибка",
-                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show(ex.Message, "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
 
@@ -166,18 +162,62 @@ namespace TaskManager
         {
             if (tasksListBox.SelectedIndex == -1)
             {
-                MessageBox.Show("Выберите задачу для изменения статуса!", "Внимание", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show("Выберите задачу!", "Внимание",
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
             try
             {
-                taskManager.ToggleTaskCompletion(tasksListBox.SelectedIndex);
+                var tasks = taskManager.GetTasksByCategory(currentFilter);
+                var realIndex = taskManager.Tasks.IndexOf(tasks[tasksListBox.SelectedIndex]);
+                taskManager.ToggleTaskCompletion(realIndex);
                 UpdateTasksList();
             }
             catch (Exception ex)
             {
                 MessageBox.Show(ex.Message, "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
+        }
+
+        private void AddCategoryButton_Click(object sender, EventArgs e)
+        {
+            string name = newCategoryTextBox.Text.Trim();
+            if (taskManager.AddCategory(name))
+            {
+                newCategoryTextBox.Clear();
+                PopulateCategories();
+                MessageBox.Show($"Категория «{name}» добавлена!", "Успех",
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            else
+            {
+                MessageBox.Show("Категория с таким именем уже существует!", "Ошибка",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void RemoveCategoryButton_Click(object sender, EventArgs e)
+        {
+            string name = categoryComboBox.SelectedItem?.ToString();
+            if (string.IsNullOrEmpty(name) || name == "Без категории")
+            {
+                MessageBox.Show("Выберите категорию для удаления (кроме «Без категории»)", "Внимание",
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+            if (taskManager.RemoveCategory(name))
+            {
+                PopulateCategories();
+                UpdateTasksList();
+                MessageBox.Show($"Категория «{name}» удалена!", "Успех",
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+        }
+
+        private void FilterComboBox_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            currentFilter = filterComboBox.SelectedItem?.ToString() ?? "Все";
+            UpdateTasksList();
         }
     }
 }
